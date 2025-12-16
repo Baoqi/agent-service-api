@@ -1,0 +1,209 @@
+syntax = "proto3";
+
+package agentservice.v1;
+
+option go_package = "github.com/Baoqi/agent-service-api/api/v1;agentservicepb";
+
+// AgentService - Unified AI execution service
+// Manages Claude/Gemini CLI subprocesses with streaming output
+service AgentService {
+  // Execute AI task with streaming response
+  // Client can cancel via context cancellation
+  // Returns task_id in the first response for tracking
+  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+  
+  // List active tasks
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  
+  // Cancel a running task by task_id
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  
+  // Cancel a running task by sender_id
+  rpc CancelBySender(CancelBySenderRequest) returns (CancelBySenderResponse);
+  
+  // Health check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// ExecuteRequest - Request to execute an AI task
+message ExecuteRequest {
+  // User prompt to send to AI (required)
+  string prompt = 1;
+  
+  // Unique identifier for this execution, used for cancellation and message routing (required)
+  string sender_id = 2;
+  
+  // Working directory for the AI process (required)
+  string working_dir = 3;
+  
+  // AI engine to use: "claude" or "gemini" (default: "claude")
+  string ai_engine = 4;
+  
+  // Optional: Session ID to resume a previous conversation (Claude's --resume)
+  string session_id = 5;
+  
+  // Optional: System prompt / context to prepend
+  string system_prompt = 6;
+  
+  // Optional: Additional environment variables for the subprocess
+  map<string, string> extra_env = 7;
+  
+  // Optional: Execution configuration overrides
+  ExecuteConfig config = 8;
+}
+
+// ExecuteConfig - Configuration for AI execution
+message ExecuteConfig {
+  // Timeout in minutes (default: 30)
+  int32 timeout_minutes = 1;
+  
+  // Max conversation turns (default: 50)
+  int32 max_turns = 2;
+  
+  // Allowed tools (empty means all allowed)
+  repeated string allowed_tools = 3;
+  
+  // Disallowed tools
+  repeated string disallowed_tools = 4;
+  
+  // MCP config file path
+  string mcp_config = 5;
+}
+
+// ExecuteResponse - Streaming response from AI execution
+message ExecuteResponse {
+  // Message type
+  MessageType type = 1;
+  
+  // Message content (for PROGRESS, ERROR, SYSTEM types)
+  string content = 2;
+  
+  // Final result (only set when type is RESULT)
+  ExecuteResult result = 3;
+  
+  // Task ID (returned in first response, included in all subsequent responses)
+  string task_id = 4;
+}
+
+// MessageType - Type of streaming message
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  // Progress message (stdout line from AI)
+  MESSAGE_TYPE_PROGRESS = 1;
+  // Error message (stderr line)
+  MESSAGE_TYPE_ERROR = 2;
+  // System message (process started, etc.)
+  MESSAGE_TYPE_SYSTEM = 3;
+  // Final result with full output
+  MESSAGE_TYPE_RESULT = 4;
+  // Task started message (contains task_id)
+  MESSAGE_TYPE_TASK_STARTED = 5;
+}
+
+// ExecuteResult - Final result of AI execution
+message ExecuteResult {
+  // Full output from AI
+  string output = 1;
+  
+  // Session ID for resume (from Claude's --resume)
+  // Use this in subsequent requests to continue the conversation
+  string session_id = 2;
+  
+  // Process exit code (0 = success)
+  int32 exit_code = 3;
+  
+  // Execution duration in seconds
+  double duration_seconds = 4;
+  
+  // Status: "completed", "failed", "cancelled", "timeout"
+  string status = 5;
+  
+  // Error message if status is "failed"
+  string error = 6;
+}
+
+// HealthRequest - Health check request
+message HealthRequest {}
+
+// HealthResponse - Health check response
+message HealthResponse {
+  // Service status: "healthy" or "unhealthy"
+  string status = 1;
+  
+  // Service version
+  string version = 2;
+  
+  // Number of active processes
+  int32 active_processes = 3;
+  
+  // Uptime in seconds
+  int64 uptime_seconds = 4;
+}
+
+// ========== Task-based API (recommended) ==========
+
+// ListTasksRequest - Request to list active tasks
+message ListTasksRequest {}
+
+// ListTasksResponse - Response with active tasks
+message ListTasksResponse {
+  repeated TaskInfo tasks = 1;
+}
+
+// TaskInfo - Information about an AI execution task
+message TaskInfo {
+  // Unique task ID (UUID)
+  string task_id = 1;
+  
+  // Sender ID (client identifier)
+  string sender_id = 2;
+  
+  // AI engine being used
+  string ai_engine = 3;
+  
+  // Working directory
+  string working_dir = 4;
+  
+  // Preview of the prompt (truncated)
+  string prompt_preview = 5;
+  
+  // Task status: "pending", "running", "completed", "failed", "cancelled", "timeout"
+  string status = 6;
+  
+  // Created time as Unix timestamp
+  int64 created_at = 7;
+  
+  // Started time as Unix timestamp (0 if not started)
+  int64 started_at = 8;
+}
+
+// CancelTaskRequest - Request to cancel a task by task_id
+message CancelTaskRequest {
+  // Task ID to cancel
+  string task_id = 1;
+}
+
+// CancelTaskResponse - Response from cancel task request
+message CancelTaskResponse {
+  // Whether the cancellation was successful
+  bool success = 1;
+  
+  // Human-readable message
+  string message = 2;
+}
+
+// CancelBySenderRequest - Request to cancel a task by sender_id
+message CancelBySenderRequest {
+  // Sender ID of the task to cancel
+  string sender_id = 1;
+}
+
+// CancelBySenderResponse - Response from cancel by sender request
+message CancelBySenderResponse {
+  // Whether the cancellation was successful
+  bool success = 1;
+  
+  // Human-readable message
+  string message = 2;
+}
+
