@@ -19,6 +19,9 @@ type Client struct {
 
 // ExecuteRequest represents a request to execute an AI task
 type ExecuteRequest struct {
+	// Agent name for multi-tenant isolation (required)
+	AgentName string
+
 	// User prompt to send to AI (required)
 	Prompt string
 
@@ -85,11 +88,14 @@ type ExecuteResult struct {
 
 // StreamMessage represents a streaming message
 type StreamMessage struct {
-	// Message type: "progress", "error", "system", "result"
+	// Message type: "progress", "error", "system", "result", "task_started"
 	Type string
 
 	// Message content
 	Content string
+
+	// Task ID (available after task_started message)
+	TaskID string
 
 	// Final result (only set when Type is "result")
 	Result *ExecuteResult
@@ -108,6 +114,7 @@ type TaskInfo struct {
 	Status        string
 	CreatedAt     time.Time
 	StartedAt     time.Time
+	AgentName     string
 }
 
 // NewClient creates a new Agent Service client
@@ -152,8 +159,14 @@ func (c *Client) Execute(ctx context.Context, req *ExecuteRequest) (*ExecuteResu
 
 // ExecuteWithHandler executes an AI task with a message handler for streaming
 func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, handler MessageHandler) error {
+	// Validate required fields
+	if req.AgentName == "" {
+		return fmt.Errorf("agent_name is required")
+	}
+
 	// Convert to protobuf request
 	pbReq := &pb.ExecuteRequest{
+		AgentName:    req.AgentName,
 		Prompt:       req.Prompt,
 		SenderId:     req.SenderID,
 		WorkingDir:   req.WorkingDir,
@@ -192,6 +205,7 @@ func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, ha
 		// Convert to StreamMessage
 		msg := &StreamMessage{
 			Content: resp.Content,
+			TaskID:  resp.TaskId,
 		}
 
 		switch resp.Type {
@@ -201,6 +215,8 @@ func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, ha
 			msg.Type = "error"
 		case pb.MessageType_MESSAGE_TYPE_SYSTEM:
 			msg.Type = "system"
+		case pb.MessageType_MESSAGE_TYPE_TASK_STARTED:
+			msg.Type = "task_started"
 		case pb.MessageType_MESSAGE_TYPE_RESULT:
 			msg.Type = "result"
 			if resp.Result != nil {
@@ -224,9 +240,15 @@ func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, ha
 	return nil
 }
 
-// ListTasks returns all active tasks
-func (c *Client) ListTasks(ctx context.Context) ([]*TaskInfo, error) {
-	resp, err := c.client.ListTasks(ctx, &pb.ListTasksRequest{})
+// ListTasks returns all active tasks for the specified agent
+func (c *Client) ListTasks(ctx context.Context, agentName string) ([]*TaskInfo, error) {
+	if agentName == "" {
+		return nil, fmt.Errorf("agent_name is required")
+	}
+
+	resp, err := c.client.ListTasks(ctx, &pb.ListTasksRequest{
+		AgentName: agentName,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks: %w", err)
 	}
@@ -242,6 +264,7 @@ func (c *Client) ListTasks(ctx context.Context) ([]*TaskInfo, error) {
 			Status:        t.Status,
 			CreatedAt:     time.Unix(t.CreatedAt, 0),
 			StartedAt:     time.Unix(t.StartedAt, 0),
+			AgentName:     t.AgentName,
 		})
 	}
 
@@ -249,9 +272,14 @@ func (c *Client) ListTasks(ctx context.Context) ([]*TaskInfo, error) {
 }
 
 // CancelBySender cancels a running task by sender ID (recommended)
-func (c *Client) CancelBySender(ctx context.Context, senderID string) error {
+func (c *Client) CancelBySender(ctx context.Context, agentName, senderID string) error {
+	if agentName == "" {
+		return fmt.Errorf("agent_name is required")
+	}
+
 	resp, err := c.client.CancelBySender(ctx, &pb.CancelBySenderRequest{
-		SenderId: senderID,
+		AgentName: agentName,
+		SenderId:  senderID,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to cancel by sender: %w", err)
@@ -265,9 +293,14 @@ func (c *Client) CancelBySender(ctx context.Context, senderID string) error {
 }
 
 // CancelTask cancels a running task by task ID
-func (c *Client) CancelTask(ctx context.Context, taskID string) error {
+func (c *Client) CancelTask(ctx context.Context, agentName, taskID string) error {
+	if agentName == "" {
+		return fmt.Errorf("agent_name is required")
+	}
+
 	resp, err := c.client.CancelTask(ctx, &pb.CancelTaskRequest{
-		TaskId: taskID,
+		AgentName: agentName,
+		TaskId:    taskID,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to cancel task: %w", err)
@@ -302,4 +335,3 @@ type HealthStatus struct {
 	ActiveProcesses int
 	Uptime          time.Duration
 }
-

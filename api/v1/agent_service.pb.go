@@ -88,11 +88,15 @@ func (MessageType) EnumDescriptor() ([]byte, []int) {
 // ExecuteRequest - Request to execute an AI task
 type ExecuteRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Agent name for multi-tenant isolation (required)
+	// Each agent has its own configuration (projects_base_dir, etc.)
+	AgentName string `protobuf:"bytes,9,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	// User prompt to send to AI (required)
 	Prompt string `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Unique identifier for this execution, used for cancellation and message routing (required)
 	SenderId string `protobuf:"bytes,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
 	// Working directory for the AI process (required)
+	// Will be resolved relative to agent's projects_base_dir if not absolute
 	WorkingDir string `protobuf:"bytes,3,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
 	// AI engine to use: "claude" or "gemini" (default: "claude")
 	AiEngine string `protobuf:"bytes,4,opt,name=ai_engine,json=aiEngine,proto3" json:"ai_engine,omitempty"`
@@ -136,6 +140,13 @@ func (x *ExecuteRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ExecuteRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteRequest) Descriptor() ([]byte, []int) {
 	return file_agent_service_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ExecuteRequest) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
 }
 
 func (x *ExecuteRequest) GetPrompt() string {
@@ -553,7 +564,9 @@ func (x *HealthResponse) GetUptimeSeconds() int64 {
 
 // ListTasksRequest - Request to list active tasks
 type ListTasksRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Agent name for multi-tenant isolation (required)
+	AgentName     string `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -586,6 +599,13 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListTasksRequest) Descriptor() ([]byte, []int) {
 	return file_agent_service_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListTasksRequest) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
 }
 
 // ListTasksResponse - Response with active tasks
@@ -651,7 +671,9 @@ type TaskInfo struct {
 	// Created time as Unix timestamp
 	CreatedAt int64 `protobuf:"varint,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// Started time as Unix timestamp (0 if not started)
-	StartedAt     int64 `protobuf:"varint,8,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	StartedAt int64 `protobuf:"varint,8,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	// Agent name this task belongs to
+	AgentName     string `protobuf:"bytes,9,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -742,9 +764,18 @@ func (x *TaskInfo) GetStartedAt() int64 {
 	return 0
 }
 
+func (x *TaskInfo) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
+}
+
 // CancelTaskRequest - Request to cancel a task by task_id
 type CancelTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Agent name for multi-tenant isolation (required)
+	AgentName string `protobuf:"bytes,2,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	// Task ID to cancel
 	TaskId        string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -779,6 +810,13 @@ func (x *CancelTaskRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use CancelTaskRequest.ProtoReflect.Descriptor instead.
 func (*CancelTaskRequest) Descriptor() ([]byte, []int) {
 	return file_agent_service_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CancelTaskRequest) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
 }
 
 func (x *CancelTaskRequest) GetTaskId() string {
@@ -846,6 +884,8 @@ func (x *CancelTaskResponse) GetMessage() string {
 // CancelBySenderRequest - Request to cancel a task by sender_id
 type CancelBySenderRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Agent name for multi-tenant isolation (required)
+	AgentName string `protobuf:"bytes,2,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	// Sender ID of the task to cancel
 	SenderId      string `protobuf:"bytes,1,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -880,6 +920,13 @@ func (x *CancelBySenderRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use CancelBySenderRequest.ProtoReflect.Descriptor instead.
 func (*CancelBySenderRequest) Descriptor() ([]byte, []int) {
 	return file_agent_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *CancelBySenderRequest) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
 }
 
 func (x *CancelBySenderRequest) GetSenderId() string {
@@ -948,8 +995,10 @@ var File_agent_service_proto protoreflect.FileDescriptor
 
 const file_agent_service_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent_service.proto\x12\x0fagentservice.v1\"\x88\x03\n" +
-	"\x0eExecuteRequest\x12\x16\n" +
+	"\x13agent_service.proto\x12\x0fagentservice.v1\"\xa7\x03\n" +
+	"\x0eExecuteRequest\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\t \x01(\tR\tagentName\x12\x16\n" +
 	"\x06prompt\x18\x01 \x01(\tR\x06prompt\x12\x1b\n" +
 	"\tsender_id\x18\x02 \x01(\tR\bsenderId\x12\x1f\n" +
 	"\vworking_dir\x18\x03 \x01(\tR\n" +
@@ -988,10 +1037,12 @@ const file_agent_service_proto_rawDesc = "" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12)\n" +
 	"\x10active_processes\x18\x03 \x01(\x05R\x0factiveProcesses\x12%\n" +
-	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds\"\x12\n" +
-	"\x10ListTasksRequest\"D\n" +
+	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds\"1\n" +
+	"\x10ListTasksRequest\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\"D\n" +
 	"\x11ListTasksResponse\x12/\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x19.agentservice.v1.TaskInfoR\x05tasks\"\xfb\x01\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x19.agentservice.v1.TaskInfoR\x05tasks\"\x9a\x02\n" +
 	"\bTaskInfo\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\tsender_id\x18\x02 \x01(\tR\bsenderId\x12\x1b\n" +
@@ -1003,13 +1054,19 @@ const file_agent_service_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\x03R\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"started_at\x18\b \x01(\x03R\tstartedAt\",\n" +
-	"\x11CancelTaskRequest\x12\x17\n" +
+	"started_at\x18\b \x01(\x03R\tstartedAt\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\t \x01(\tR\tagentName\"K\n" +
+	"\x11CancelTaskRequest\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\x02 \x01(\tR\tagentName\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"H\n" +
 	"\x12CancelTaskResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"4\n" +
-	"\x15CancelBySenderRequest\x12\x1b\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"S\n" +
+	"\x15CancelBySenderRequest\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\x02 \x01(\tR\tagentName\x12\x1b\n" +
 	"\tsender_id\x18\x01 \x01(\tR\bsenderId\"L\n" +
 	"\x16CancelBySenderResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +

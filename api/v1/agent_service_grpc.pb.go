@@ -32,6 +32,7 @@ const (
 //
 // AgentService - Unified AI execution service
 // Manages Claude/Gemini CLI subprocesses with streaming output
+// Supports multi-tenant agents with isolated configurations
 type AgentServiceClient interface {
 	// Execute AI task with streaming response
 	// Client can cancel via context cancellation
@@ -120,6 +121,7 @@ func (c *agentServiceClient) Health(ctx context.Context, in *HealthRequest, opts
 //
 // AgentService - Unified AI execution service
 // Manages Claude/Gemini CLI subprocesses with streaming output
+// Supports multi-tenant agents with isolated configurations
 type AgentServiceServer interface {
 	// Execute AI task with streaming response
 	// Client can cancel via context cancellation

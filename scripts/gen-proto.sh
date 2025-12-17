@@ -21,3 +21,5 @@ protoc \
 echo "Done! Generated files:"
 ls -la "$PROJECT_ROOT/api/v1/"*.go 2>/dev/null || echo "No .go files generated yet"
 
+
+
