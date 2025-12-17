@@ -31,19 +31,14 @@ type ExecuteRequest struct {
 	// Working directory for the AI process (required)
 	WorkingDir string
 
-	// AI engine to use: "claude" or "gemini" (default: "claude")
-	AIEngine string
+	// Task ID to resume a previous conversation (optional)
+	// When provided, the service will look up the session state from the parent task
+	ResumeTaskID string
 
-	// Session ID to resume a previous conversation
-	SessionID string
-
-	// System prompt / context to prepend
+	// System prompt / context to prepend (optional)
 	SystemPrompt string
 
-	// Additional environment variables
-	ExtraEnv map[string]string
-
-	// Execution configuration
+	// Execution configuration (optional)
 	Config *ExecuteConfig
 }
 
@@ -70,9 +65,6 @@ type ExecuteResult struct {
 	// Full output from AI
 	Output string
 
-	// Session ID for resume
-	SessionID string
-
 	// Process exit code
 	ExitCode int
 
@@ -84,6 +76,9 @@ type ExecuteResult struct {
 
 	// Error message if failed
 	Error string
+
+	// Whether this task can be resumed
+	IsResumable bool
 }
 
 // StreamMessage represents a streaming message
@@ -115,6 +110,8 @@ type TaskInfo struct {
 	CreatedAt     time.Time
 	StartedAt     time.Time
 	AgentName     string
+	ParentTaskID  string // Parent task ID if this is a resumed task
+	IsResumable   bool   // Whether this task can be resumed
 }
 
 // NewClient creates a new Agent Service client
@@ -170,10 +167,8 @@ func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, ha
 		Prompt:       req.Prompt,
 		SenderId:     req.SenderID,
 		WorkingDir:   req.WorkingDir,
-		AiEngine:     req.AIEngine,
-		SessionId:    req.SessionID,
+		ResumeTaskId: req.ResumeTaskID,
 		SystemPrompt: req.SystemPrompt,
-		ExtraEnv:     req.ExtraEnv,
 	}
 
 	if req.Config != nil {
@@ -221,12 +216,12 @@ func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, ha
 			msg.Type = "result"
 			if resp.Result != nil {
 				msg.Result = &ExecuteResult{
-					Output:    resp.Result.Output,
-					SessionID: resp.Result.SessionId,
-					ExitCode:  int(resp.Result.ExitCode),
-					Duration:  time.Duration(resp.Result.DurationSeconds * float64(time.Second)),
-					Status:    resp.Result.Status,
-					Error:     resp.Result.Error,
+					Output:      resp.Result.Output,
+					ExitCode:    int(resp.Result.ExitCode),
+					Duration:    time.Duration(resp.Result.DurationSeconds * float64(time.Second)),
+					Status:      resp.Result.Status,
+					Error:       resp.Result.Error,
+					IsResumable: resp.Result.IsResumable,
 				}
 			}
 		}
@@ -265,6 +260,8 @@ func (c *Client) ListTasks(ctx context.Context, agentName string) ([]*TaskInfo, 
 			CreatedAt:     time.Unix(t.CreatedAt, 0),
 			StartedAt:     time.Unix(t.StartedAt, 0),
 			AgentName:     t.AgentName,
+			ParentTaskID:  t.ParentTaskId,
+			IsResumable:   t.IsResumable,
 		})
 	}
 

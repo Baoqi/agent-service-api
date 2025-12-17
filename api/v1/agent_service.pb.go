@@ -89,25 +89,23 @@ func (MessageType) EnumDescriptor() ([]byte, []int) {
 type ExecuteRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Agent name for multi-tenant isolation (required)
-	// Each agent has its own configuration (projects_base_dir, etc.)
-	AgentName string `protobuf:"bytes,9,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	// Each agent has its own configuration (projects_base_dir, ai_engine, etc.)
+	AgentName string `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	// User prompt to send to AI (required)
-	Prompt string `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Unique identifier for this execution, used for cancellation and message routing (required)
-	SenderId string `protobuf:"bytes,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	SenderId string `protobuf:"bytes,3,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
 	// Working directory for the AI process (required)
 	// Will be resolved relative to agent's projects_base_dir if not absolute
-	WorkingDir string `protobuf:"bytes,3,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
-	// AI engine to use: "claude" or "gemini" (default: "claude")
-	AiEngine string `protobuf:"bytes,4,opt,name=ai_engine,json=aiEngine,proto3" json:"ai_engine,omitempty"`
-	// Optional: Session ID to resume a previous conversation (Claude's --resume)
-	SessionId string `protobuf:"bytes,5,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	WorkingDir string `protobuf:"bytes,4,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
+	// Optional: Task ID to resume a previous conversation
+	// When provided, the service will look up the session state from the parent task
+	// and continue the conversation (e.g., using Claude's --resume flag internally)
+	ResumeTaskId string `protobuf:"bytes,5,opt,name=resume_task_id,json=resumeTaskId,proto3" json:"resume_task_id,omitempty"`
 	// Optional: System prompt / context to prepend
 	SystemPrompt string `protobuf:"bytes,6,opt,name=system_prompt,json=systemPrompt,proto3" json:"system_prompt,omitempty"`
-	// Optional: Additional environment variables for the subprocess
-	ExtraEnv map[string]string `protobuf:"bytes,7,rep,name=extra_env,json=extraEnv,proto3" json:"extra_env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Optional: Execution configuration overrides
-	Config        *ExecuteConfig `protobuf:"bytes,8,opt,name=config,proto3" json:"config,omitempty"`
+	Config        *ExecuteConfig `protobuf:"bytes,7,opt,name=config,proto3" json:"config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -170,16 +168,9 @@ func (x *ExecuteRequest) GetWorkingDir() string {
 	return ""
 }
 
-func (x *ExecuteRequest) GetAiEngine() string {
+func (x *ExecuteRequest) GetResumeTaskId() string {
 	if x != nil {
-		return x.AiEngine
-	}
-	return ""
-}
-
-func (x *ExecuteRequest) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
+		return x.ResumeTaskId
 	}
 	return ""
 }
@@ -189,13 +180,6 @@ func (x *ExecuteRequest) GetSystemPrompt() string {
 		return x.SystemPrompt
 	}
 	return ""
-}
-
-func (x *ExecuteRequest) GetExtraEnv() map[string]string {
-	if x != nil {
-		return x.ExtraEnv
-	}
-	return nil
 }
 
 func (x *ExecuteRequest) GetConfig() *ExecuteConfig {
@@ -208,9 +192,9 @@ func (x *ExecuteRequest) GetConfig() *ExecuteConfig {
 // ExecuteConfig - Configuration for AI execution
 type ExecuteConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Timeout in minutes (default: 30)
+	// Timeout in minutes (default: from agent config or 30)
 	TimeoutMinutes int32 `protobuf:"varint,1,opt,name=timeout_minutes,json=timeoutMinutes,proto3" json:"timeout_minutes,omitempty"`
-	// Max conversation turns (default: 50)
+	// Max conversation turns (default: from agent config or 50)
 	MaxTurns int32 `protobuf:"varint,2,opt,name=max_turns,json=maxTurns,proto3" json:"max_turns,omitempty"`
 	// Allowed tools (empty means all allowed)
 	AllowedTools []string `protobuf:"bytes,3,rep,name=allowed_tools,json=allowedTools,proto3" json:"allowed_tools,omitempty"`
@@ -365,17 +349,17 @@ type ExecuteResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Full output from AI
 	Output string `protobuf:"bytes,1,opt,name=output,proto3" json:"output,omitempty"`
-	// Session ID for resume (from Claude's --resume)
-	// Use this in subsequent requests to continue the conversation
-	SessionId string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// Process exit code (0 = success)
-	ExitCode int32 `protobuf:"varint,3,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	ExitCode int32 `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	// Execution duration in seconds
-	DurationSeconds float64 `protobuf:"fixed64,4,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
+	DurationSeconds float64 `protobuf:"fixed64,3,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
 	// Status: "completed", "failed", "cancelled", "timeout"
-	Status string `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Status string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
 	// Error message if status is "failed"
-	Error         string `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
+	Error string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	// Whether this task can be resumed (i.e., has a valid session state)
+	// Use the task_id from this response as resume_task_id in a subsequent Execute call
+	IsResumable   bool `protobuf:"varint,6,opt,name=is_resumable,json=isResumable,proto3" json:"is_resumable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -417,13 +401,6 @@ func (x *ExecuteResult) GetOutput() string {
 	return ""
 }
 
-func (x *ExecuteResult) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
-}
-
 func (x *ExecuteResult) GetExitCode() int32 {
 	if x != nil {
 		return x.ExitCode
@@ -450,6 +427,13 @@ func (x *ExecuteResult) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *ExecuteResult) GetIsResumable() bool {
+	if x != nil {
+		return x.IsResumable
+	}
+	return false
 }
 
 // HealthRequest - Health check request
@@ -660,7 +644,7 @@ type TaskInfo struct {
 	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// Sender ID (client identifier)
 	SenderId string `protobuf:"bytes,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
-	// AI engine being used
+	// AI engine being used (from agent config)
 	AiEngine string `protobuf:"bytes,3,opt,name=ai_engine,json=aiEngine,proto3" json:"ai_engine,omitempty"`
 	// Working directory
 	WorkingDir string `protobuf:"bytes,4,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
@@ -673,7 +657,11 @@ type TaskInfo struct {
 	// Started time as Unix timestamp (0 if not started)
 	StartedAt int64 `protobuf:"varint,8,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	// Agent name this task belongs to
-	AgentName     string `protobuf:"bytes,9,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	AgentName string `protobuf:"bytes,9,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	// Parent task ID if this task is a resume of another task
+	ParentTaskId string `protobuf:"bytes,10,opt,name=parent_task_id,json=parentTaskId,proto3" json:"parent_task_id,omitempty"`
+	// Whether this task can be resumed
+	IsResumable   bool `protobuf:"varint,11,opt,name=is_resumable,json=isResumable,proto3" json:"is_resumable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -771,13 +759,27 @@ func (x *TaskInfo) GetAgentName() string {
 	return ""
 }
 
+func (x *TaskInfo) GetParentTaskId() string {
+	if x != nil {
+		return x.ParentTaskId
+	}
+	return ""
+}
+
+func (x *TaskInfo) GetIsResumable() bool {
+	if x != nil {
+		return x.IsResumable
+	}
+	return false
+}
+
 // CancelTaskRequest - Request to cancel a task by task_id
 type CancelTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Agent name for multi-tenant isolation (required)
-	AgentName string `protobuf:"bytes,2,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	AgentName string `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	// Task ID to cancel
-	TaskId        string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskId        string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -885,9 +887,9 @@ func (x *CancelTaskResponse) GetMessage() string {
 type CancelBySenderRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Agent name for multi-tenant isolation (required)
-	AgentName string `protobuf:"bytes,2,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	AgentName string `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	// Sender ID of the task to cancel
-	SenderId      string `protobuf:"bytes,1,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	SenderId      string `protobuf:"bytes,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -995,23 +997,17 @@ var File_agent_service_proto protoreflect.FileDescriptor
 
 const file_agent_service_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent_service.proto\x12\x0fagentservice.v1\"\xa7\x03\n" +
+	"\x13agent_service.proto\x12\x0fagentservice.v1\"\x88\x02\n" +
 	"\x0eExecuteRequest\x12\x1d\n" +
 	"\n" +
-	"agent_name\x18\t \x01(\tR\tagentName\x12\x16\n" +
-	"\x06prompt\x18\x01 \x01(\tR\x06prompt\x12\x1b\n" +
-	"\tsender_id\x18\x02 \x01(\tR\bsenderId\x12\x1f\n" +
-	"\vworking_dir\x18\x03 \x01(\tR\n" +
-	"workingDir\x12\x1b\n" +
-	"\tai_engine\x18\x04 \x01(\tR\baiEngine\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x05 \x01(\tR\tsessionId\x12#\n" +
-	"\rsystem_prompt\x18\x06 \x01(\tR\fsystemPrompt\x12J\n" +
-	"\textra_env\x18\a \x03(\v2-.agentservice.v1.ExecuteRequest.ExtraEnvEntryR\bextraEnv\x126\n" +
-	"\x06config\x18\b \x01(\v2\x1e.agentservice.v1.ExecuteConfigR\x06config\x1a;\n" +
-	"\rExtraEnvEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc4\x01\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x16\n" +
+	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12\x1b\n" +
+	"\tsender_id\x18\x03 \x01(\tR\bsenderId\x12\x1f\n" +
+	"\vworking_dir\x18\x04 \x01(\tR\n" +
+	"workingDir\x12$\n" +
+	"\x0eresume_task_id\x18\x05 \x01(\tR\fresumeTaskId\x12#\n" +
+	"\rsystem_prompt\x18\x06 \x01(\tR\fsystemPrompt\x126\n" +
+	"\x06config\x18\a \x01(\v2\x1e.agentservice.v1.ExecuteConfigR\x06config\"\xc4\x01\n" +
 	"\rExecuteConfig\x12'\n" +
 	"\x0ftimeout_minutes\x18\x01 \x01(\x05R\x0etimeoutMinutes\x12\x1b\n" +
 	"\tmax_turns\x18\x02 \x01(\x05R\bmaxTurns\x12#\n" +
@@ -1023,15 +1019,14 @@ const file_agent_service_proto_rawDesc = "" +
 	"\x04type\x18\x01 \x01(\x0e2\x1c.agentservice.v1.MessageTypeR\x04type\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x126\n" +
 	"\x06result\x18\x03 \x01(\v2\x1e.agentservice.v1.ExecuteResultR\x06result\x12\x17\n" +
-	"\atask_id\x18\x04 \x01(\tR\x06taskId\"\xbc\x01\n" +
+	"\atask_id\x18\x04 \x01(\tR\x06taskId\"\xc0\x01\n" +
 	"\rExecuteResult\x12\x16\n" +
-	"\x06output\x18\x01 \x01(\tR\x06output\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1b\n" +
-	"\texit_code\x18\x03 \x01(\x05R\bexitCode\x12)\n" +
-	"\x10duration_seconds\x18\x04 \x01(\x01R\x0fdurationSeconds\x12\x16\n" +
-	"\x06status\x18\x05 \x01(\tR\x06status\x12\x14\n" +
-	"\x05error\x18\x06 \x01(\tR\x05error\"\x0f\n" +
+	"\x06output\x18\x01 \x01(\tR\x06output\x12\x1b\n" +
+	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12)\n" +
+	"\x10duration_seconds\x18\x03 \x01(\x01R\x0fdurationSeconds\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x12!\n" +
+	"\fis_resumable\x18\x06 \x01(\bR\visResumable\"\x0f\n" +
 	"\rHealthRequest\"\x94\x01\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x18\n" +
@@ -1042,7 +1037,7 @@ const file_agent_service_proto_rawDesc = "" +
 	"\n" +
 	"agent_name\x18\x01 \x01(\tR\tagentName\"D\n" +
 	"\x11ListTasksResponse\x12/\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x19.agentservice.v1.TaskInfoR\x05tasks\"\x9a\x02\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x19.agentservice.v1.TaskInfoR\x05tasks\"\xe3\x02\n" +
 	"\bTaskInfo\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\tsender_id\x18\x02 \x01(\tR\bsenderId\x12\x1b\n" +
@@ -1056,18 +1051,21 @@ const file_agent_service_proto_rawDesc = "" +
 	"\n" +
 	"started_at\x18\b \x01(\x03R\tstartedAt\x12\x1d\n" +
 	"\n" +
-	"agent_name\x18\t \x01(\tR\tagentName\"K\n" +
+	"agent_name\x18\t \x01(\tR\tagentName\x12$\n" +
+	"\x0eparent_task_id\x18\n" +
+	" \x01(\tR\fparentTaskId\x12!\n" +
+	"\fis_resumable\x18\v \x01(\bR\visResumable\"K\n" +
 	"\x11CancelTaskRequest\x12\x1d\n" +
 	"\n" +
-	"agent_name\x18\x02 \x01(\tR\tagentName\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\"H\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\"H\n" +
 	"\x12CancelTaskResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"S\n" +
 	"\x15CancelBySenderRequest\x12\x1d\n" +
 	"\n" +
-	"agent_name\x18\x02 \x01(\tR\tagentName\x12\x1b\n" +
-	"\tsender_id\x18\x01 \x01(\tR\bsenderId\"L\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x1b\n" +
+	"\tsender_id\x18\x02 \x01(\tR\bsenderId\"L\n" +
 	"\x16CancelBySenderResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage*\xaf\x01\n" +
@@ -1099,7 +1097,7 @@ func file_agent_service_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_agent_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_agent_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_agent_service_proto_goTypes = []any{
 	(MessageType)(0),               // 0: agentservice.v1.MessageType
 	(*ExecuteRequest)(nil),         // 1: agentservice.v1.ExecuteRequest
@@ -1115,29 +1113,27 @@ var file_agent_service_proto_goTypes = []any{
 	(*CancelTaskResponse)(nil),     // 11: agentservice.v1.CancelTaskResponse
 	(*CancelBySenderRequest)(nil),  // 12: agentservice.v1.CancelBySenderRequest
 	(*CancelBySenderResponse)(nil), // 13: agentservice.v1.CancelBySenderResponse
-	nil,                            // 14: agentservice.v1.ExecuteRequest.ExtraEnvEntry
 }
 var file_agent_service_proto_depIdxs = []int32{
-	14, // 0: agentservice.v1.ExecuteRequest.extra_env:type_name -> agentservice.v1.ExecuteRequest.ExtraEnvEntry
-	2,  // 1: agentservice.v1.ExecuteRequest.config:type_name -> agentservice.v1.ExecuteConfig
-	0,  // 2: agentservice.v1.ExecuteResponse.type:type_name -> agentservice.v1.MessageType
-	4,  // 3: agentservice.v1.ExecuteResponse.result:type_name -> agentservice.v1.ExecuteResult
-	9,  // 4: agentservice.v1.ListTasksResponse.tasks:type_name -> agentservice.v1.TaskInfo
-	1,  // 5: agentservice.v1.AgentService.Execute:input_type -> agentservice.v1.ExecuteRequest
-	7,  // 6: agentservice.v1.AgentService.ListTasks:input_type -> agentservice.v1.ListTasksRequest
-	10, // 7: agentservice.v1.AgentService.CancelTask:input_type -> agentservice.v1.CancelTaskRequest
-	12, // 8: agentservice.v1.AgentService.CancelBySender:input_type -> agentservice.v1.CancelBySenderRequest
-	5,  // 9: agentservice.v1.AgentService.Health:input_type -> agentservice.v1.HealthRequest
-	3,  // 10: agentservice.v1.AgentService.Execute:output_type -> agentservice.v1.ExecuteResponse
-	8,  // 11: agentservice.v1.AgentService.ListTasks:output_type -> agentservice.v1.ListTasksResponse
-	11, // 12: agentservice.v1.AgentService.CancelTask:output_type -> agentservice.v1.CancelTaskResponse
-	13, // 13: agentservice.v1.AgentService.CancelBySender:output_type -> agentservice.v1.CancelBySenderResponse
-	6,  // 14: agentservice.v1.AgentService.Health:output_type -> agentservice.v1.HealthResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	2,  // 0: agentservice.v1.ExecuteRequest.config:type_name -> agentservice.v1.ExecuteConfig
+	0,  // 1: agentservice.v1.ExecuteResponse.type:type_name -> agentservice.v1.MessageType
+	4,  // 2: agentservice.v1.ExecuteResponse.result:type_name -> agentservice.v1.ExecuteResult
+	9,  // 3: agentservice.v1.ListTasksResponse.tasks:type_name -> agentservice.v1.TaskInfo
+	1,  // 4: agentservice.v1.AgentService.Execute:input_type -> agentservice.v1.ExecuteRequest
+	7,  // 5: agentservice.v1.AgentService.ListTasks:input_type -> agentservice.v1.ListTasksRequest
+	10, // 6: agentservice.v1.AgentService.CancelTask:input_type -> agentservice.v1.CancelTaskRequest
+	12, // 7: agentservice.v1.AgentService.CancelBySender:input_type -> agentservice.v1.CancelBySenderRequest
+	5,  // 8: agentservice.v1.AgentService.Health:input_type -> agentservice.v1.HealthRequest
+	3,  // 9: agentservice.v1.AgentService.Execute:output_type -> agentservice.v1.ExecuteResponse
+	8,  // 10: agentservice.v1.AgentService.ListTasks:output_type -> agentservice.v1.ListTasksResponse
+	11, // 11: agentservice.v1.AgentService.CancelTask:output_type -> agentservice.v1.CancelTaskResponse
+	13, // 12: agentservice.v1.AgentService.CancelBySender:output_type -> agentservice.v1.CancelBySenderResponse
+	6,  // 13: agentservice.v1.AgentService.Health:output_type -> agentservice.v1.HealthResponse
+	9,  // [9:14] is the sub-list for method output_type
+	4,  // [4:9] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_agent_service_proto_init() }
@@ -1151,7 +1147,7 @@ func file_agent_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_service_proto_rawDesc), len(file_agent_service_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

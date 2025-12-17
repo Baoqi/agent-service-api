@@ -29,41 +29,37 @@ service AgentService {
 // ExecuteRequest - Request to execute an AI task
 message ExecuteRequest {
   // Agent name for multi-tenant isolation (required)
-  // Each agent has its own configuration (projects_base_dir, etc.)
-  string agent_name = 9;
+  // Each agent has its own configuration (projects_base_dir, ai_engine, etc.)
+  string agent_name = 1;
   
   // User prompt to send to AI (required)
-  string prompt = 1;
+  string prompt = 2;
   
   // Unique identifier for this execution, used for cancellation and message routing (required)
-  string sender_id = 2;
+  string sender_id = 3;
   
   // Working directory for the AI process (required)
   // Will be resolved relative to agent's projects_base_dir if not absolute
-  string working_dir = 3;
+  string working_dir = 4;
   
-  // AI engine to use: "claude" or "gemini" (default: "claude")
-  string ai_engine = 4;
-  
-  // Optional: Session ID to resume a previous conversation (Claude's --resume)
-  string session_id = 5;
+  // Optional: Task ID to resume a previous conversation
+  // When provided, the service will look up the session state from the parent task
+  // and continue the conversation (e.g., using Claude's --resume flag internally)
+  string resume_task_id = 5;
   
   // Optional: System prompt / context to prepend
   string system_prompt = 6;
   
-  // Optional: Additional environment variables for the subprocess
-  map<string, string> extra_env = 7;
-  
   // Optional: Execution configuration overrides
-  ExecuteConfig config = 8;
+  ExecuteConfig config = 7;
 }
 
 // ExecuteConfig - Configuration for AI execution
 message ExecuteConfig {
-  // Timeout in minutes (default: 30)
+  // Timeout in minutes (default: from agent config or 30)
   int32 timeout_minutes = 1;
   
-  // Max conversation turns (default: 50)
+  // Max conversation turns (default: from agent config or 50)
   int32 max_turns = 2;
   
   // Allowed tools (empty means all allowed)
@@ -111,21 +107,21 @@ message ExecuteResult {
   // Full output from AI
   string output = 1;
   
-  // Session ID for resume (from Claude's --resume)
-  // Use this in subsequent requests to continue the conversation
-  string session_id = 2;
-  
   // Process exit code (0 = success)
-  int32 exit_code = 3;
+  int32 exit_code = 2;
   
   // Execution duration in seconds
-  double duration_seconds = 4;
+  double duration_seconds = 3;
   
   // Status: "completed", "failed", "cancelled", "timeout"
-  string status = 5;
+  string status = 4;
   
   // Error message if status is "failed"
-  string error = 6;
+  string error = 5;
+  
+  // Whether this task can be resumed (i.e., has a valid session state)
+  // Use the task_id from this response as resume_task_id in a subsequent Execute call
+  bool is_resumable = 6;
 }
 
 // HealthRequest - Health check request
@@ -167,7 +163,7 @@ message TaskInfo {
   // Sender ID (client identifier)
   string sender_id = 2;
   
-  // AI engine being used
+  // AI engine being used (from agent config)
   string ai_engine = 3;
   
   // Working directory
@@ -187,15 +183,21 @@ message TaskInfo {
   
   // Agent name this task belongs to
   string agent_name = 9;
+  
+  // Parent task ID if this task is a resume of another task
+  string parent_task_id = 10;
+  
+  // Whether this task can be resumed
+  bool is_resumable = 11;
 }
 
 // CancelTaskRequest - Request to cancel a task by task_id
 message CancelTaskRequest {
   // Agent name for multi-tenant isolation (required)
-  string agent_name = 2;
+  string agent_name = 1;
   
   // Task ID to cancel
-  string task_id = 1;
+  string task_id = 2;
 }
 
 // CancelTaskResponse - Response from cancel task request
@@ -210,10 +212,10 @@ message CancelTaskResponse {
 // CancelBySenderRequest - Request to cancel a task by sender_id
 message CancelBySenderRequest {
   // Agent name for multi-tenant isolation (required)
-  string agent_name = 2;
+  string agent_name = 1;
   
   // Sender ID of the task to cancel
-  string sender_id = 1;
+  string sender_id = 2;
 }
 
 // CancelBySenderResponse - Response from cancel by sender request
