@@ -52,6 +52,16 @@ message ExecuteRequest {
   
   // Optional: Execution configuration overrides
   ExecuteConfig config = 7;
+  
+  // Optional: Scenario name to use (must be configured for the agent)
+  // When provided, scenario-specific instructions and settings are applied
+  string scenario = 8;
+  
+  // Optional: Environment variables for the AI execution
+  // These are validated against the scenario's env_vars configuration:
+  // - Required variables must be provided
+  // - Only variables defined in the scenario config are allowed (others are filtered out)
+  map<string, string> env_vars = 9;
 }
 
 // ExecuteConfig - Configuration for AI execution

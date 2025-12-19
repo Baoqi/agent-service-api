@@ -105,7 +105,15 @@ type ExecuteRequest struct {
 	// Optional: System prompt / context to prepend
 	SystemPrompt string `protobuf:"bytes,6,opt,name=system_prompt,json=systemPrompt,proto3" json:"system_prompt,omitempty"`
 	// Optional: Execution configuration overrides
-	Config        *ExecuteConfig `protobuf:"bytes,7,opt,name=config,proto3" json:"config,omitempty"`
+	Config *ExecuteConfig `protobuf:"bytes,7,opt,name=config,proto3" json:"config,omitempty"`
+	// Optional: Scenario name to use (must be configured for the agent)
+	// When provided, scenario-specific instructions and settings are applied
+	Scenario string `protobuf:"bytes,8,opt,name=scenario,proto3" json:"scenario,omitempty"`
+	// Optional: Environment variables for the AI execution
+	// These are validated against the scenario's env_vars configuration:
+	// - Required variables must be provided
+	// - Only variables defined in the scenario config are allowed (others are filtered out)
+	EnvVars       map[string]string `protobuf:"bytes,9,rep,name=env_vars,json=envVars,proto3" json:"env_vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -185,6 +193,20 @@ func (x *ExecuteRequest) GetSystemPrompt() string {
 func (x *ExecuteRequest) GetConfig() *ExecuteConfig {
 	if x != nil {
 		return x.Config
+	}
+	return nil
+}
+
+func (x *ExecuteRequest) GetScenario() string {
+	if x != nil {
+		return x.Scenario
+	}
+	return ""
+}
+
+func (x *ExecuteRequest) GetEnvVars() map[string]string {
+	if x != nil {
+		return x.EnvVars
 	}
 	return nil
 }
@@ -997,7 +1019,7 @@ var File_agent_service_proto protoreflect.FileDescriptor
 
 const file_agent_service_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent_service.proto\x12\x0fagentservice.v1\"\x88\x02\n" +
+	"\x13agent_service.proto\x12\x0fagentservice.v1\"\xa9\x03\n" +
 	"\x0eExecuteRequest\x12\x1d\n" +
 	"\n" +
 	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x16\n" +
@@ -1007,7 +1029,12 @@ const file_agent_service_proto_rawDesc = "" +
 	"workingDir\x12$\n" +
 	"\x0eresume_task_id\x18\x05 \x01(\tR\fresumeTaskId\x12#\n" +
 	"\rsystem_prompt\x18\x06 \x01(\tR\fsystemPrompt\x126\n" +
-	"\x06config\x18\a \x01(\v2\x1e.agentservice.v1.ExecuteConfigR\x06config\"\xc4\x01\n" +
+	"\x06config\x18\a \x01(\v2\x1e.agentservice.v1.ExecuteConfigR\x06config\x12\x1a\n" +
+	"\bscenario\x18\b \x01(\tR\bscenario\x12G\n" +
+	"\benv_vars\x18\t \x03(\v2,.agentservice.v1.ExecuteRequest.EnvVarsEntryR\aenvVars\x1a:\n" +
+	"\fEnvVarsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc4\x01\n" +
 	"\rExecuteConfig\x12'\n" +
 	"\x0ftimeout_minutes\x18\x01 \x01(\x05R\x0etimeoutMinutes\x12\x1b\n" +
 	"\tmax_turns\x18\x02 \x01(\x05R\bmaxTurns\x12#\n" +
@@ -1097,7 +1124,7 @@ func file_agent_service_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_agent_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_agent_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_agent_service_proto_goTypes = []any{
 	(MessageType)(0),               // 0: agentservice.v1.MessageType
 	(*ExecuteRequest)(nil),         // 1: agentservice.v1.ExecuteRequest
@@ -1113,27 +1140,29 @@ var file_agent_service_proto_goTypes = []any{
 	(*CancelTaskResponse)(nil),     // 11: agentservice.v1.CancelTaskResponse
 	(*CancelBySenderRequest)(nil),  // 12: agentservice.v1.CancelBySenderRequest
 	(*CancelBySenderResponse)(nil), // 13: agentservice.v1.CancelBySenderResponse
+	nil,                            // 14: agentservice.v1.ExecuteRequest.EnvVarsEntry
 }
 var file_agent_service_proto_depIdxs = []int32{
 	2,  // 0: agentservice.v1.ExecuteRequest.config:type_name -> agentservice.v1.ExecuteConfig
-	0,  // 1: agentservice.v1.ExecuteResponse.type:type_name -> agentservice.v1.MessageType
-	4,  // 2: agentservice.v1.ExecuteResponse.result:type_name -> agentservice.v1.ExecuteResult
-	9,  // 3: agentservice.v1.ListTasksResponse.tasks:type_name -> agentservice.v1.TaskInfo
-	1,  // 4: agentservice.v1.AgentService.Execute:input_type -> agentservice.v1.ExecuteRequest
-	7,  // 5: agentservice.v1.AgentService.ListTasks:input_type -> agentservice.v1.ListTasksRequest
-	10, // 6: agentservice.v1.AgentService.CancelTask:input_type -> agentservice.v1.CancelTaskRequest
-	12, // 7: agentservice.v1.AgentService.CancelBySender:input_type -> agentservice.v1.CancelBySenderRequest
-	5,  // 8: agentservice.v1.AgentService.Health:input_type -> agentservice.v1.HealthRequest
-	3,  // 9: agentservice.v1.AgentService.Execute:output_type -> agentservice.v1.ExecuteResponse
-	8,  // 10: agentservice.v1.AgentService.ListTasks:output_type -> agentservice.v1.ListTasksResponse
-	11, // 11: agentservice.v1.AgentService.CancelTask:output_type -> agentservice.v1.CancelTaskResponse
-	13, // 12: agentservice.v1.AgentService.CancelBySender:output_type -> agentservice.v1.CancelBySenderResponse
-	6,  // 13: agentservice.v1.AgentService.Health:output_type -> agentservice.v1.HealthResponse
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	14, // 1: agentservice.v1.ExecuteRequest.env_vars:type_name -> agentservice.v1.ExecuteRequest.EnvVarsEntry
+	0,  // 2: agentservice.v1.ExecuteResponse.type:type_name -> agentservice.v1.MessageType
+	4,  // 3: agentservice.v1.ExecuteResponse.result:type_name -> agentservice.v1.ExecuteResult
+	9,  // 4: agentservice.v1.ListTasksResponse.tasks:type_name -> agentservice.v1.TaskInfo
+	1,  // 5: agentservice.v1.AgentService.Execute:input_type -> agentservice.v1.ExecuteRequest
+	7,  // 6: agentservice.v1.AgentService.ListTasks:input_type -> agentservice.v1.ListTasksRequest
+	10, // 7: agentservice.v1.AgentService.CancelTask:input_type -> agentservice.v1.CancelTaskRequest
+	12, // 8: agentservice.v1.AgentService.CancelBySender:input_type -> agentservice.v1.CancelBySenderRequest
+	5,  // 9: agentservice.v1.AgentService.Health:input_type -> agentservice.v1.HealthRequest
+	3,  // 10: agentservice.v1.AgentService.Execute:output_type -> agentservice.v1.ExecuteResponse
+	8,  // 11: agentservice.v1.AgentService.ListTasks:output_type -> agentservice.v1.ListTasksResponse
+	11, // 12: agentservice.v1.AgentService.CancelTask:output_type -> agentservice.v1.CancelTaskResponse
+	13, // 13: agentservice.v1.AgentService.CancelBySender:output_type -> agentservice.v1.CancelBySenderResponse
+	6,  // 14: agentservice.v1.AgentService.Health:output_type -> agentservice.v1.HealthResponse
+	10, // [10:15] is the sub-list for method output_type
+	5,  // [5:10] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_agent_service_proto_init() }
@@ -1147,7 +1176,7 @@ func file_agent_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_service_proto_rawDesc), len(file_agent_service_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
