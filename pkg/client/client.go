@@ -40,6 +40,14 @@ type ExecuteRequest struct {
 
 	// Execution configuration (optional)
 	Config *ExecuteConfig
+
+	// Scenario name to use (optional)
+	// When provided, scenario-specific instructions and settings are applied
+	Scenario string
+
+	// Environment variables for the AI execution (optional)
+	// These are validated against the scenario's env_vars configuration
+	EnvVars map[string]string
 }
 
 // ExecuteConfig represents execution configuration
@@ -169,6 +177,8 @@ func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, ha
 		WorkingDir:   req.WorkingDir,
 		ResumeTaskId: req.ResumeTaskID,
 		SystemPrompt: req.SystemPrompt,
+		Scenario:     req.Scenario,
+		EnvVars:      req.EnvVars,
 	}
 
 	if req.Config != nil {
