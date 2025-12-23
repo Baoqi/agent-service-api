@@ -94,26 +94,27 @@ type ExecuteRequest struct {
 	// User prompt to send to AI (required)
 	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Unique identifier for this execution, used for cancellation and message routing (required)
-	SenderId string `protobuf:"bytes,3,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
-	// Working directory for the AI process (required)
-	// Will be resolved relative to agent's projects_base_dir if not absolute
-	WorkingDir string `protobuf:"bytes,4,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
+	// Identifies the calling client (e.g., user session, API consumer)
+	ClientId string `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// Project name for the AI process (required)
+	// Will be resolved relative to agent's projects_base_dir
+	// This is an abstract identifier, not a real filesystem path
+	ProjectName string `protobuf:"bytes,4,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
 	// Optional: Task ID to resume a previous conversation
 	// When provided, the service will look up the session state from the parent task
 	// and continue the conversation (e.g., using Claude's --resume flag internally)
 	ResumeTaskId string `protobuf:"bytes,5,opt,name=resume_task_id,json=resumeTaskId,proto3" json:"resume_task_id,omitempty"`
-	// Optional: System prompt / context to prepend
-	SystemPrompt string `protobuf:"bytes,6,opt,name=system_prompt,json=systemPrompt,proto3" json:"system_prompt,omitempty"`
 	// Optional: Execution configuration overrides
-	Config *ExecuteConfig `protobuf:"bytes,7,opt,name=config,proto3" json:"config,omitempty"`
+	Config *ExecuteConfig `protobuf:"bytes,6,opt,name=config,proto3" json:"config,omitempty"`
 	// Optional: Scenario name to use (must be configured for the agent)
 	// When provided, scenario-specific instructions and settings are applied
-	Scenario string `protobuf:"bytes,8,opt,name=scenario,proto3" json:"scenario,omitempty"`
+	// Use this instead of system_prompt for scenario-specific context
+	Scenario string `protobuf:"bytes,7,opt,name=scenario,proto3" json:"scenario,omitempty"`
 	// Optional: Environment variables for the AI execution
 	// These are validated against the scenario's env_vars configuration:
 	// - Required variables must be provided
 	// - Only variables defined in the scenario config are allowed (others are filtered out)
-	EnvVars       map[string]string `protobuf:"bytes,9,rep,name=env_vars,json=envVars,proto3" json:"env_vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	EnvVars       map[string]string `protobuf:"bytes,8,rep,name=env_vars,json=envVars,proto3" json:"env_vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,16 +163,16 @@ func (x *ExecuteRequest) GetPrompt() string {
 	return ""
 }
 
-func (x *ExecuteRequest) GetSenderId() string {
+func (x *ExecuteRequest) GetClientId() string {
 	if x != nil {
-		return x.SenderId
+		return x.ClientId
 	}
 	return ""
 }
 
-func (x *ExecuteRequest) GetWorkingDir() string {
+func (x *ExecuteRequest) GetProjectName() string {
 	if x != nil {
-		return x.WorkingDir
+		return x.ProjectName
 	}
 	return ""
 }
@@ -179,13 +180,6 @@ func (x *ExecuteRequest) GetWorkingDir() string {
 func (x *ExecuteRequest) GetResumeTaskId() string {
 	if x != nil {
 		return x.ResumeTaskId
-	}
-	return ""
-}
-
-func (x *ExecuteRequest) GetSystemPrompt() string {
-	if x != nil {
-		return x.SystemPrompt
 	}
 	return ""
 }
@@ -664,12 +658,12 @@ type TaskInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Unique task ID (UUID)
 	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// Sender ID (client identifier)
-	SenderId string `protobuf:"bytes,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	// Client ID (caller identifier)
+	ClientId string `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	// AI engine being used (from agent config)
 	AiEngine string `protobuf:"bytes,3,opt,name=ai_engine,json=aiEngine,proto3" json:"ai_engine,omitempty"`
-	// Working directory
-	WorkingDir string `protobuf:"bytes,4,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
+	// Project name
+	ProjectName string `protobuf:"bytes,4,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
 	// Preview of the prompt (truncated)
 	PromptPreview string `protobuf:"bytes,5,opt,name=prompt_preview,json=promptPreview,proto3" json:"prompt_preview,omitempty"`
 	// Task status: "pending", "running", "completed", "failed", "cancelled", "timeout"
@@ -725,9 +719,9 @@ func (x *TaskInfo) GetTaskId() string {
 	return ""
 }
 
-func (x *TaskInfo) GetSenderId() string {
+func (x *TaskInfo) GetClientId() string {
 	if x != nil {
-		return x.SenderId
+		return x.ClientId
 	}
 	return ""
 }
@@ -739,9 +733,9 @@ func (x *TaskInfo) GetAiEngine() string {
 	return ""
 }
 
-func (x *TaskInfo) GetWorkingDir() string {
+func (x *TaskInfo) GetProjectName() string {
 	if x != nil {
-		return x.WorkingDir
+		return x.ProjectName
 	}
 	return ""
 }
@@ -905,31 +899,31 @@ func (x *CancelTaskResponse) GetMessage() string {
 	return ""
 }
 
-// CancelBySenderRequest - Request to cancel a task by sender_id
-type CancelBySenderRequest struct {
+// CancelByClientRequest - Request to cancel a task by client_id
+type CancelByClientRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Agent name for multi-tenant isolation (required)
 	AgentName string `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
-	// Sender ID of the task to cancel
-	SenderId      string `protobuf:"bytes,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	// Client ID of the task to cancel
+	ClientId      string `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CancelBySenderRequest) Reset() {
-	*x = CancelBySenderRequest{}
+func (x *CancelByClientRequest) Reset() {
+	*x = CancelByClientRequest{}
 	mi := &file_agent_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CancelBySenderRequest) String() string {
+func (x *CancelByClientRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CancelBySenderRequest) ProtoMessage() {}
+func (*CancelByClientRequest) ProtoMessage() {}
 
-func (x *CancelBySenderRequest) ProtoReflect() protoreflect.Message {
+func (x *CancelByClientRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -941,27 +935,27 @@ func (x *CancelBySenderRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CancelBySenderRequest.ProtoReflect.Descriptor instead.
-func (*CancelBySenderRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CancelByClientRequest.ProtoReflect.Descriptor instead.
+func (*CancelByClientRequest) Descriptor() ([]byte, []int) {
 	return file_agent_service_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *CancelBySenderRequest) GetAgentName() string {
+func (x *CancelByClientRequest) GetAgentName() string {
 	if x != nil {
 		return x.AgentName
 	}
 	return ""
 }
 
-func (x *CancelBySenderRequest) GetSenderId() string {
+func (x *CancelByClientRequest) GetClientId() string {
 	if x != nil {
-		return x.SenderId
+		return x.ClientId
 	}
 	return ""
 }
 
-// CancelBySenderResponse - Response from cancel by sender request
-type CancelBySenderResponse struct {
+// CancelByClientResponse - Response from cancel by client request
+type CancelByClientResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whether the cancellation was successful
 	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
@@ -971,20 +965,20 @@ type CancelBySenderResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CancelBySenderResponse) Reset() {
-	*x = CancelBySenderResponse{}
+func (x *CancelByClientResponse) Reset() {
+	*x = CancelByClientResponse{}
 	mi := &file_agent_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CancelBySenderResponse) String() string {
+func (x *CancelByClientResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CancelBySenderResponse) ProtoMessage() {}
+func (*CancelByClientResponse) ProtoMessage() {}
 
-func (x *CancelBySenderResponse) ProtoReflect() protoreflect.Message {
+func (x *CancelByClientResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -996,19 +990,19 @@ func (x *CancelBySenderResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CancelBySenderResponse.ProtoReflect.Descriptor instead.
-func (*CancelBySenderResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CancelByClientResponse.ProtoReflect.Descriptor instead.
+func (*CancelByClientResponse) Descriptor() ([]byte, []int) {
 	return file_agent_service_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *CancelBySenderResponse) GetSuccess() bool {
+func (x *CancelByClientResponse) GetSuccess() bool {
 	if x != nil {
 		return x.Success
 	}
 	return false
 }
 
-func (x *CancelBySenderResponse) GetMessage() string {
+func (x *CancelByClientResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
 	}
@@ -1019,19 +1013,17 @@ var File_agent_service_proto protoreflect.FileDescriptor
 
 const file_agent_service_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent_service.proto\x12\x0fagentservice.v1\"\xa9\x03\n" +
+	"\x13agent_service.proto\x12\x0fagentservice.v1\"\x86\x03\n" +
 	"\x0eExecuteRequest\x12\x1d\n" +
 	"\n" +
 	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x16\n" +
 	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12\x1b\n" +
-	"\tsender_id\x18\x03 \x01(\tR\bsenderId\x12\x1f\n" +
-	"\vworking_dir\x18\x04 \x01(\tR\n" +
-	"workingDir\x12$\n" +
-	"\x0eresume_task_id\x18\x05 \x01(\tR\fresumeTaskId\x12#\n" +
-	"\rsystem_prompt\x18\x06 \x01(\tR\fsystemPrompt\x126\n" +
-	"\x06config\x18\a \x01(\v2\x1e.agentservice.v1.ExecuteConfigR\x06config\x12\x1a\n" +
-	"\bscenario\x18\b \x01(\tR\bscenario\x12G\n" +
-	"\benv_vars\x18\t \x03(\v2,.agentservice.v1.ExecuteRequest.EnvVarsEntryR\aenvVars\x1a:\n" +
+	"\tclient_id\x18\x03 \x01(\tR\bclientId\x12!\n" +
+	"\fproject_name\x18\x04 \x01(\tR\vprojectName\x12$\n" +
+	"\x0eresume_task_id\x18\x05 \x01(\tR\fresumeTaskId\x126\n" +
+	"\x06config\x18\x06 \x01(\v2\x1e.agentservice.v1.ExecuteConfigR\x06config\x12\x1a\n" +
+	"\bscenario\x18\a \x01(\tR\bscenario\x12G\n" +
+	"\benv_vars\x18\b \x03(\v2,.agentservice.v1.ExecuteRequest.EnvVarsEntryR\aenvVars\x1a:\n" +
 	"\fEnvVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc4\x01\n" +
@@ -1064,13 +1056,12 @@ const file_agent_service_proto_rawDesc = "" +
 	"\n" +
 	"agent_name\x18\x01 \x01(\tR\tagentName\"D\n" +
 	"\x11ListTasksResponse\x12/\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x19.agentservice.v1.TaskInfoR\x05tasks\"\xe3\x02\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x19.agentservice.v1.TaskInfoR\x05tasks\"\xe5\x02\n" +
 	"\bTaskInfo\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
-	"\tsender_id\x18\x02 \x01(\tR\bsenderId\x12\x1b\n" +
-	"\tai_engine\x18\x03 \x01(\tR\baiEngine\x12\x1f\n" +
-	"\vworking_dir\x18\x04 \x01(\tR\n" +
-	"workingDir\x12%\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x1b\n" +
+	"\tai_engine\x18\x03 \x01(\tR\baiEngine\x12!\n" +
+	"\fproject_name\x18\x04 \x01(\tR\vprojectName\x12%\n" +
 	"\x0eprompt_preview\x18\x05 \x01(\tR\rpromptPreview\x12\x16\n" +
 	"\x06status\x18\x06 \x01(\tR\x06status\x12\x1d\n" +
 	"\n" +
@@ -1089,11 +1080,11 @@ const file_agent_service_proto_rawDesc = "" +
 	"\x12CancelTaskResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"S\n" +
-	"\x15CancelBySenderRequest\x12\x1d\n" +
+	"\x15CancelByClientRequest\x12\x1d\n" +
 	"\n" +
 	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x1b\n" +
-	"\tsender_id\x18\x02 \x01(\tR\bsenderId\"L\n" +
-	"\x16CancelBySenderResponse\x12\x18\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\"L\n" +
+	"\x16CancelByClientResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage*\xaf\x01\n" +
 	"\vMessageType\x12\x1c\n" +
@@ -1108,7 +1099,7 @@ const file_agent_service_proto_rawDesc = "" +
 	"\tListTasks\x12!.agentservice.v1.ListTasksRequest\x1a\".agentservice.v1.ListTasksResponse\x12U\n" +
 	"\n" +
 	"CancelTask\x12\".agentservice.v1.CancelTaskRequest\x1a#.agentservice.v1.CancelTaskResponse\x12a\n" +
-	"\x0eCancelBySender\x12&.agentservice.v1.CancelBySenderRequest\x1a'.agentservice.v1.CancelBySenderResponse\x12I\n" +
+	"\x0eCancelByClient\x12&.agentservice.v1.CancelByClientRequest\x1a'.agentservice.v1.CancelByClientResponse\x12I\n" +
 	"\x06Health\x12\x1e.agentservice.v1.HealthRequest\x1a\x1f.agentservice.v1.HealthResponseB:Z8github.com/Baoqi/agent-service-api/api/v1;agentservicepbb\x06proto3"
 
 var (
@@ -1138,8 +1129,8 @@ var file_agent_service_proto_goTypes = []any{
 	(*TaskInfo)(nil),               // 9: agentservice.v1.TaskInfo
 	(*CancelTaskRequest)(nil),      // 10: agentservice.v1.CancelTaskRequest
 	(*CancelTaskResponse)(nil),     // 11: agentservice.v1.CancelTaskResponse
-	(*CancelBySenderRequest)(nil),  // 12: agentservice.v1.CancelBySenderRequest
-	(*CancelBySenderResponse)(nil), // 13: agentservice.v1.CancelBySenderResponse
+	(*CancelByClientRequest)(nil),  // 12: agentservice.v1.CancelByClientRequest
+	(*CancelByClientResponse)(nil), // 13: agentservice.v1.CancelByClientResponse
 	nil,                            // 14: agentservice.v1.ExecuteRequest.EnvVarsEntry
 }
 var file_agent_service_proto_depIdxs = []int32{
@@ -1151,12 +1142,12 @@ var file_agent_service_proto_depIdxs = []int32{
 	1,  // 5: agentservice.v1.AgentService.Execute:input_type -> agentservice.v1.ExecuteRequest
 	7,  // 6: agentservice.v1.AgentService.ListTasks:input_type -> agentservice.v1.ListTasksRequest
 	10, // 7: agentservice.v1.AgentService.CancelTask:input_type -> agentservice.v1.CancelTaskRequest
-	12, // 8: agentservice.v1.AgentService.CancelBySender:input_type -> agentservice.v1.CancelBySenderRequest
+	12, // 8: agentservice.v1.AgentService.CancelByClient:input_type -> agentservice.v1.CancelByClientRequest
 	5,  // 9: agentservice.v1.AgentService.Health:input_type -> agentservice.v1.HealthRequest
 	3,  // 10: agentservice.v1.AgentService.Execute:output_type -> agentservice.v1.ExecuteResponse
 	8,  // 11: agentservice.v1.AgentService.ListTasks:output_type -> agentservice.v1.ListTasksResponse
 	11, // 12: agentservice.v1.AgentService.CancelTask:output_type -> agentservice.v1.CancelTaskResponse
-	13, // 13: agentservice.v1.AgentService.CancelBySender:output_type -> agentservice.v1.CancelBySenderResponse
+	13, // 13: agentservice.v1.AgentService.CancelByClient:output_type -> agentservice.v1.CancelByClientResponse
 	6,  // 14: agentservice.v1.AgentService.Health:output_type -> agentservice.v1.HealthResponse
 	10, // [10:15] is the sub-list for method output_type
 	5,  // [5:10] is the sub-list for method input_type

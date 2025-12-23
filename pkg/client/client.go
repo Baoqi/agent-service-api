@@ -26,23 +26,23 @@ type ExecuteRequest struct {
 	Prompt string
 
 	// Unique identifier for this execution (required)
-	SenderID string
+	// Identifies the calling client (e.g., user session, API consumer)
+	ClientID string
 
-	// Working directory for the AI process (required)
-	WorkingDir string
+	// Project name for the AI process (required)
+	// Will be resolved relative to agent's projects_base_dir
+	ProjectName string
 
 	// Task ID to resume a previous conversation (optional)
 	// When provided, the service will look up the session state from the parent task
 	ResumeTaskID string
-
-	// System prompt / context to prepend (optional)
-	SystemPrompt string
 
 	// Execution configuration (optional)
 	Config *ExecuteConfig
 
 	// Scenario name to use (optional)
 	// When provided, scenario-specific instructions and settings are applied
+	// Use this instead of system_prompt for scenario-specific context
 	Scenario string
 
 	// Environment variables for the AI execution (optional)
@@ -110,9 +110,9 @@ type MessageHandler func(msg *StreamMessage)
 // TaskInfo represents information about an AI execution task
 type TaskInfo struct {
 	TaskID        string
-	SenderID      string
+	ClientID      string
 	AIEngine      string
-	WorkingDir    string
+	ProjectName   string
 	PromptPreview string
 	Status        string
 	CreatedAt     time.Time
@@ -173,10 +173,9 @@ func (c *Client) ExecuteWithHandler(ctx context.Context, req *ExecuteRequest, ha
 	pbReq := &pb.ExecuteRequest{
 		AgentName:    req.AgentName,
 		Prompt:       req.Prompt,
-		SenderId:     req.SenderID,
-		WorkingDir:   req.WorkingDir,
+		ClientId:     req.ClientID,
+		ProjectName:  req.ProjectName,
 		ResumeTaskId: req.ResumeTaskID,
-		SystemPrompt: req.SystemPrompt,
 		Scenario:     req.Scenario,
 		EnvVars:      req.EnvVars,
 	}
@@ -262,9 +261,9 @@ func (c *Client) ListTasks(ctx context.Context, agentName string) ([]*TaskInfo, 
 	for _, t := range resp.Tasks {
 		tasks = append(tasks, &TaskInfo{
 			TaskID:        t.TaskId,
-			SenderID:      t.SenderId,
+			ClientID:      t.ClientId,
 			AIEngine:      t.AiEngine,
-			WorkingDir:    t.WorkingDir,
+			ProjectName:   t.ProjectName,
 			PromptPreview: t.PromptPreview,
 			Status:        t.Status,
 			CreatedAt:     time.Unix(t.CreatedAt, 0),
@@ -278,18 +277,18 @@ func (c *Client) ListTasks(ctx context.Context, agentName string) ([]*TaskInfo, 
 	return tasks, nil
 }
 
-// CancelBySender cancels a running task by sender ID (recommended)
-func (c *Client) CancelBySender(ctx context.Context, agentName, senderID string) error {
+// CancelByClient cancels a running task by client ID (recommended)
+func (c *Client) CancelByClient(ctx context.Context, agentName, clientID string) error {
 	if agentName == "" {
 		return fmt.Errorf("agent_name is required")
 	}
 
-	resp, err := c.client.CancelBySender(ctx, &pb.CancelBySenderRequest{
+	resp, err := c.client.CancelByClient(ctx, &pb.CancelByClientRequest{
 		AgentName: agentName,
-		SenderId:  senderID,
+		ClientId:  clientID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to cancel by sender: %w", err)
+		return fmt.Errorf("failed to cancel by client: %w", err)
 	}
 
 	if !resp.Success {

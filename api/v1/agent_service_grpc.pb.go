@@ -22,7 +22,7 @@ const (
 	AgentService_Execute_FullMethodName        = "/agentservice.v1.AgentService/Execute"
 	AgentService_ListTasks_FullMethodName      = "/agentservice.v1.AgentService/ListTasks"
 	AgentService_CancelTask_FullMethodName     = "/agentservice.v1.AgentService/CancelTask"
-	AgentService_CancelBySender_FullMethodName = "/agentservice.v1.AgentService/CancelBySender"
+	AgentService_CancelByClient_FullMethodName = "/agentservice.v1.AgentService/CancelByClient"
 	AgentService_Health_FullMethodName         = "/agentservice.v1.AgentService/Health"
 )
 
@@ -42,8 +42,8 @@ type AgentServiceClient interface {
 	ListTasks(ctx context.Context, in *ListTasksRequest, opts ...grpc.CallOption) (*ListTasksResponse, error)
 	// Cancel a running task by task_id
 	CancelTask(ctx context.Context, in *CancelTaskRequest, opts ...grpc.CallOption) (*CancelTaskResponse, error)
-	// Cancel a running task by sender_id
-	CancelBySender(ctx context.Context, in *CancelBySenderRequest, opts ...grpc.CallOption) (*CancelBySenderResponse, error)
+	// Cancel a running task by client_id
+	CancelByClient(ctx context.Context, in *CancelByClientRequest, opts ...grpc.CallOption) (*CancelByClientResponse, error)
 	// Health check
 	Health(ctx context.Context, in *HealthRequest, opts ...grpc.CallOption) (*HealthResponse, error)
 }
@@ -95,10 +95,10 @@ func (c *agentServiceClient) CancelTask(ctx context.Context, in *CancelTaskReque
 	return out, nil
 }
 
-func (c *agentServiceClient) CancelBySender(ctx context.Context, in *CancelBySenderRequest, opts ...grpc.CallOption) (*CancelBySenderResponse, error) {
+func (c *agentServiceClient) CancelByClient(ctx context.Context, in *CancelByClientRequest, opts ...grpc.CallOption) (*CancelByClientResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CancelBySenderResponse)
-	err := c.cc.Invoke(ctx, AgentService_CancelBySender_FullMethodName, in, out, cOpts...)
+	out := new(CancelByClientResponse)
+	err := c.cc.Invoke(ctx, AgentService_CancelByClient_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +131,8 @@ type AgentServiceServer interface {
 	ListTasks(context.Context, *ListTasksRequest) (*ListTasksResponse, error)
 	// Cancel a running task by task_id
 	CancelTask(context.Context, *CancelTaskRequest) (*CancelTaskResponse, error)
-	// Cancel a running task by sender_id
-	CancelBySender(context.Context, *CancelBySenderRequest) (*CancelBySenderResponse, error)
+	// Cancel a running task by client_id
+	CancelByClient(context.Context, *CancelByClientRequest) (*CancelByClientResponse, error)
 	// Health check
 	Health(context.Context, *HealthRequest) (*HealthResponse, error)
 	mustEmbedUnimplementedAgentServiceServer()
@@ -154,8 +154,8 @@ func (UnimplementedAgentServiceServer) ListTasks(context.Context, *ListTasksRequ
 func (UnimplementedAgentServiceServer) CancelTask(context.Context, *CancelTaskRequest) (*CancelTaskResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelTask not implemented")
 }
-func (UnimplementedAgentServiceServer) CancelBySender(context.Context, *CancelBySenderRequest) (*CancelBySenderResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CancelBySender not implemented")
+func (UnimplementedAgentServiceServer) CancelByClient(context.Context, *CancelByClientRequest) (*CancelByClientResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelByClient not implemented")
 }
 func (UnimplementedAgentServiceServer) Health(context.Context, *HealthRequest) (*HealthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Health not implemented")
@@ -228,20 +228,20 @@ func _AgentService_CancelTask_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AgentService_CancelBySender_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CancelBySenderRequest)
+func _AgentService_CancelByClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelByClientRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServiceServer).CancelBySender(ctx, in)
+		return srv.(AgentServiceServer).CancelByClient(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AgentService_CancelBySender_FullMethodName,
+		FullMethod: AgentService_CancelByClient_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServiceServer).CancelBySender(ctx, req.(*CancelBySenderRequest))
+		return srv.(AgentServiceServer).CancelByClient(ctx, req.(*CancelByClientRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -280,8 +280,8 @@ var AgentService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AgentService_CancelTask_Handler,
 		},
 		{
-			MethodName: "CancelBySender",
-			Handler:    _AgentService_CancelBySender_Handler,
+			MethodName: "CancelByClient",
+			Handler:    _AgentService_CancelByClient_Handler,
 		},
 		{
 			MethodName: "Health",

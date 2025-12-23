@@ -19,8 +19,8 @@ service AgentService {
   // Cancel a running task by task_id
   rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
   
-  // Cancel a running task by sender_id
-  rpc CancelBySender(CancelBySenderRequest) returns (CancelBySenderResponse);
+  // Cancel a running task by client_id
+  rpc CancelByClient(CancelByClientRequest) returns (CancelByClientResponse);
   
   // Health check
   rpc Health(HealthRequest) returns (HealthResponse);
@@ -36,32 +36,32 @@ message ExecuteRequest {
   string prompt = 2;
   
   // Unique identifier for this execution, used for cancellation and message routing (required)
-  string sender_id = 3;
+  // Identifies the calling client (e.g., user session, API consumer)
+  string client_id = 3;
   
-  // Working directory for the AI process (required)
-  // Will be resolved relative to agent's projects_base_dir if not absolute
-  string working_dir = 4;
+  // Project name for the AI process (required)
+  // Will be resolved relative to agent's projects_base_dir
+  // This is an abstract identifier, not a real filesystem path
+  string project_name = 4;
   
   // Optional: Task ID to resume a previous conversation
   // When provided, the service will look up the session state from the parent task
   // and continue the conversation (e.g., using Claude's --resume flag internally)
   string resume_task_id = 5;
   
-  // Optional: System prompt / context to prepend
-  string system_prompt = 6;
-  
   // Optional: Execution configuration overrides
-  ExecuteConfig config = 7;
+  ExecuteConfig config = 6;
   
   // Optional: Scenario name to use (must be configured for the agent)
   // When provided, scenario-specific instructions and settings are applied
-  string scenario = 8;
+  // Use this instead of system_prompt for scenario-specific context
+  string scenario = 7;
   
   // Optional: Environment variables for the AI execution
   // These are validated against the scenario's env_vars configuration:
   // - Required variables must be provided
   // - Only variables defined in the scenario config are allowed (others are filtered out)
-  map<string, string> env_vars = 9;
+  map<string, string> env_vars = 8;
 }
 
 // ExecuteConfig - Configuration for AI execution
@@ -170,14 +170,14 @@ message TaskInfo {
   // Unique task ID (UUID)
   string task_id = 1;
   
-  // Sender ID (client identifier)
-  string sender_id = 2;
+  // Client ID (caller identifier)
+  string client_id = 2;
   
   // AI engine being used (from agent config)
   string ai_engine = 3;
   
-  // Working directory
-  string working_dir = 4;
+  // Project name
+  string project_name = 4;
   
   // Preview of the prompt (truncated)
   string prompt_preview = 5;
@@ -219,17 +219,17 @@ message CancelTaskResponse {
   string message = 2;
 }
 
-// CancelBySenderRequest - Request to cancel a task by sender_id
-message CancelBySenderRequest {
+// CancelByClientRequest - Request to cancel a task by client_id
+message CancelByClientRequest {
   // Agent name for multi-tenant isolation (required)
   string agent_name = 1;
   
-  // Sender ID of the task to cancel
-  string sender_id = 2;
+  // Client ID of the task to cancel
+  string client_id = 2;
 }
 
-// CancelBySenderResponse - Response from cancel by sender request
-message CancelBySenderResponse {
+// CancelByClientResponse - Response from cancel by client request
+message CancelByClientResponse {
   // Whether the cancellation was successful
   bool success = 1;
   
